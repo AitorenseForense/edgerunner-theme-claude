@@ -1,0 +1,5 @@
+{
+  "name": "luna-edgerunner",
+  "owner": { "name": "AitorenseForense" },
+  "plugins": [{ "name": "luna-edgerunner", "source": "./" }]
+}
