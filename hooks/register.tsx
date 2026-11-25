@@ -1,4 +1,4 @@
-import type { Register, ThemeSetArgs } from 'claude-code'
+import type { EngineInterface, Register, ThemeSetArgs } from 'claude-code'
 
 import { makeColors } from './make-colors.js'
 
@@ -87,23 +87,39 @@ const LOOK: ThemeSetArgs = {
   },
 }
 
+// Aplica el tema. Si falla con los estilos de los mensajes, aplica al menos
+// los colores y el fondo.
+async function apply($: EngineInterface) {
+  const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
+  if (unpainted !== undefined) {
+    $.ui.log(unpainted)
+  }
+  try {
+    await $.theme.set(LOOK)
+  } catch (error) {
+    $.ui.log(String(error))
+    await $.theme.set(BASE)
+  }
+}
+
 export const register: Register = on => {
+  // Sesión nueva, sesión reanudada o plugin recién activado: el tema se queda
+  // puesto para la sesión aunque la app todavía no esté conectada (por eso no
+  // se muestra ningún aviso en la barra de estado).
   on('session.start', async ($, e, next) => {
-    const unpainted = problems.find(line => line.startsWith("Desktop won't paint"))
-    if (unpainted !== undefined) {
-      $.ui.toast(unpainted)
-    }
-    let set
-    try {
-      set = await $.theme.set(LOOK)
-    } catch (error) {
-      $.ui.log(String(error))
-      set = await $.theme.set(BASE)
-    }
-    if (!set.isDrawn) {
-      $.ui.status(set.reason)
-    }
+    await apply($)
     return next(e)
+  })
+
+  // Al abrir una sesión anterior desde la app de escritorio o el móvil, se
+  // vuelve a aplicar, para que los chats de Code que ya existían también lo
+  // tengan.
+  on('session.attach', async ($, e, next) => {
+    const result = await next(e)
+    if (e.surface === 'desktop' || e.surface === 'mobile') {
+      await apply($)
+    }
+    return result
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
